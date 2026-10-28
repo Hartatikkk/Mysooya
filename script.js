@@ -237,7 +237,7 @@ function filterCatalog(category) {
   renderProducts();
 }
 
-// Update label harga
+// Update label harga ketika ukuran dipilih
 function changePriceDisplay(productId) {
   const product = products.find(p => p.id === productId);
   const select = document.getElementById(`opt-${productId}`);
@@ -352,7 +352,6 @@ function initReviewSlider() {
 
   if (!slides.length || !dotsContainer) return;
 
-  // Render dots sesuai 10 gambar slide
   dotsContainer.innerHTML = Array.from(slides).map((_, idx) => `
     <span class="dot ${idx === 0 ? 'active' : ''}" onclick="goToReviewSlide(${idx})"></span>
   `).join("");
