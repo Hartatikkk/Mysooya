@@ -204,7 +204,7 @@ function renderProducts() {
           <select class="size-select" id="opt-${product.id}" onchange="changePriceDisplay('${product.id}')">
             ${product.options.map((opt, idx) => `
               <option value="${idx}">
-                ${opt.size} -${formatRupiah(opt.price)}
+                ${opt.size} - ${formatRupiah(opt.price)}
               </option>
             `).join("")}
           </select>
@@ -237,7 +237,7 @@ function filterCatalog(category) {
   renderProducts();
 }
 
-// Update label harga ketika opsi dipilih
+// Update label harga
 function changePriceDisplay(productId) {
   const product = products.find(p => p.id === productId);
   const select = document.getElementById(`opt-${productId}`);
@@ -341,7 +341,7 @@ function showToast(msg) {
   }, 2300);
 }
 
-// 5. LOGIKA SLIDER REVIEW (GESER SATU PER SATU)
+// 5. LOGIKA SLIDER TESTIMONI (GESER 1 PER 1)
 let currentSlide = 0;
 
 function initReviewSlider() {
@@ -352,6 +352,7 @@ function initReviewSlider() {
 
   if (!slides.length || !dotsContainer) return;
 
+  // Render dots sesuai 10 gambar slide
   dotsContainer.innerHTML = Array.from(slides).map((_, idx) => `
     <span class="dot ${idx === 0 ? 'active' : ''}" onclick="goToReviewSlide(${idx})"></span>
   `).join("");
@@ -420,7 +421,40 @@ document.addEventListener("DOMContentLoaded", () => {
   if (cartClose) cartClose.addEventListener("click", closeCart);
   if (overlay) overlay.addEventListener("click", closeCart);
 
-  // Form Checkout WhatsApp (Konfirmasi Stok + QRIS)
+  // INTERAKSI FORM CHECKOUT (Diantar vs Ambil Sendiri di Stand)
+  const deliveryMethod = document.getElementById("deliveryMethod");
+  const standSelectGroup = document.getElementById("standSelectGroup");
+  const addressGroup = document.getElementById("addressGroup");
+  const customerAddress = document.getElementById("customerAddress");
+  const paymentMethod = document.getElementById("paymentMethod");
+  const paymentInfoBox = document.getElementById("paymentInfoBox");
+
+  if (deliveryMethod) {
+    deliveryMethod.addEventListener("change", () => {
+      if (deliveryMethod.value === "ambil") {
+        standSelectGroup.style.display = "block";
+        addressGroup.style.display = "none";
+        customerAddress.removeAttribute("required");
+      } else {
+        standSelectGroup.style.display = "none";
+        addressGroup.style.display = "block";
+        customerAddress.setAttribute("required", "true");
+      }
+    });
+  }
+
+  // Info Box Dinamis (Cash vs QRIS)
+  if (paymentMethod && paymentInfoBox) {
+    paymentMethod.addEventListener("change", () => {
+      if (paymentMethod.value === "QRIS") {
+        paymentInfoBox.innerHTML = `💳 <strong>Pembayaran QRIS:</strong> Admin akan mengonfirmasi total &amp; mengirimkan <strong>barcode QRIS pembayaran</strong> langsung ke chat WhatsApp ini.`;
+      } else {
+        paymentInfoBox.innerHTML = `💵 <strong>Pembayaran Cash:</strong> Dibayarkan langsung secara tunai saat pesanan diantar atau saat diambil di stand.`;
+      }
+    });
+  }
+
+  // SUBMIT FORM CHECKOUT WHATSAPP
   const checkoutForm = document.getElementById("checkoutForm");
   if (checkoutForm) {
     checkoutForm.addEventListener("submit", (e) => {
@@ -432,18 +466,34 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const name = document.getElementById("customerName")?.value.trim();
-      const address = document.getElementById("customerAddress")?.value.trim();
+      const delivery = deliveryMethod?.value;
+      const stand = document.getElementById("standLocation")?.value;
+      const address = customerAddress?.value.trim();
+      const payment = paymentMethod?.value;
       const note = document.getElementById("customerNote")?.value.trim();
       const errorEl = document.getElementById("formError");
 
-      if (!name || !address) {
-        if (errorEl) errorEl.textContent = "Nama dan Alamat pengiriman wajib diisi!";
+      if (!name) {
+        if (errorEl) errorEl.textContent = "Nama pemesan wajib diisi!";
+        return;
+      }
+
+      if (delivery === "diantar" && !address) {
+        if (errorEl) errorEl.textContent = "Alamat pengiriman lengkap wajib diisi untuk opsi diantar!";
         return;
       }
       if (errorEl) errorEl.textContent = "";
 
       let itemsText = cart.map(i => `• ${i.name} (${i.qty}x) = ${formatRupiah(i.price * i.qty)}`).join("\n");
       let totalHarga = formatRupiah(cart.reduce((s, i) => s + (i.price * i.qty), 0));
+
+      let infoMetode = delivery === "ambil" 
+        ? `Pengambilan: *Ambil di Stand Offline*\nLokasi Stand: *${stand}* (Buka 06.30 - 09.30)` 
+        : `Pengambilan: *Diantar ke Alamat*\nAlamat: ${address}`;
+
+      let infoInstruksiBayar = payment === "QRIS"
+        ? "(Mohon dicek ketersediaan stok & dikirimkan barcode QRIS pembayarannya ya min. Terima kasih! 🙏)"
+        : "(Pembayaran via Cash/Tunai saat pesanan diterima. Terima kasih! 🙏)";
 
       let message = 
 `Halo Admin MySooya, saya mau order susu kedelai:
@@ -454,10 +504,11 @@ Subtotal: ${totalHarga}
 
 *Data Pemesan:*
 Nama: ${name}
-Alamat: ${address}
+${infoMetode}
+Pembayaran: *${payment}*
 Catatan: ${note || "-"}
 
-Mohon dicek ketersediaan stok & kirimkan barcode QRIS pembayarannya ya min. Terima kasih! 🙏`;
+${infoInstruksiBayar}`;
 
       const waUrl = `https://wa.me/6288238715696?text=${encodeURIComponent(message)}`;
       window.open(waUrl, "_blank");
